@@ -33,11 +33,12 @@ begin
 	end if;
   
   H := N/P;
-  
+  Put(P);
+  Put(H);
   declare    
     -- Types
     package Data_S is new Data(N, 100); use Data_S;
-    subtype Range_P is Integer range 1..(P-1);
+    subtype Range_P is Integer range 1..(P);
     -- Variables
 		MA, MB, MC, MO, ME: aliased Matrix;
 		a: aliased Scalar;
@@ -74,9 +75,15 @@ begin
     procedure Calculate
       (MBa, MCa, MOa, MEa: access Matrix; aa: access Scalar; Q: Integer) is
       Sum1, Sum2: Scalar;
+      B, E: Integer;
     begin
+      B := (H*Q + 1);
+      E := (H*(Q+1));
+      if (Q = (P - 1)) then
+        E := N;
+      end if;
       for I in 1..N loop
-        for J in (H*Q + 1)..(H*(Q+1)) loop
+        for J in B..E loop
           Sum1 := 0.0;
           Sum2 := 0.0;
           for K in 1..N loop
@@ -88,58 +95,49 @@ begin
       end loop;
     end;
     
-    -- TASK 1 --
-    task T1 is
-    	pragma Storage_Size(1000000000);
-    end T1;
-    
-    task body T1 is
-      MB1, MO1: aliased Matrix;
-      a1: aliased Scalar;
-    begin
-      Put_Line("Task T 1 started");
-      --Initialize MA
-      Fill(MA);
-      --Enter MB, MC, MO, ME, a
-      Put_Line("MB =   "); Input(MB); 
-      Put_Line("MC =   "); Input(MC); 
-      Put_Line("MO =   "); Input(MO); 
-      Put_Line("ME =   "); Input(ME);      
-      Put_Line("a =    "); Input(a); Put(a); Put_Line("");
-      --Signal SN,1
-      Shared_Vars.Write(MB, MO, a);
-      --Copy MB, MO, a
-      Shared_Vars.Read(MB1, MO1, a1);
-      --Calculate MAh := MB * MCh + MO * MEh * a
-      Calculate(MB1'Access, MC'Access, MO1'Access, ME'Access, a1'Access, 0);
-      --Wait WN,1
-      for I in Sem'Range loop
-        Suspend_Until_True(Sem(I));
-      end loop;
-      --Output MA
-      Put_Line("MA =   "); Output(MA);
-      Put_Line("Task T 1 finished");
-    end T1;    
-    
     -- OTHER TASKS --
     task type Generic_Task(I: Integer) is
-      pragma Storage_Size(1000000000);
+      pragma Storage_Size(10000000);
     end Generic_Task;
 
     task body Generic_Task is
       MB1, MO1: aliased Matrix;
       a1: aliased Scalar;      
     begin
-      Put_Line("Task T" & Integer'Image(I+1) &" started");
+      Put_Line("Task T" & Integer'Image(I) &" started");
+      --For task T1
+      if (I = 1) then
+        --Initialize MA
+        Fill(MA);
+        --Enter MB, MC, MO, ME, a
+        Put_Line("MB =   "); Input(MB); 
+        Put_Line("MC =   "); Input(MC); 
+        Put_Line("MO =   "); Input(MO); 
+        Put_Line("ME =   "); Input(ME);      
+        Put_Line("a =    "); Input(a); Put(a); Put_Line("");
+        --Signal SN,1
+        Shared_Vars.Write(MB, MO, a);      
+      end if;
       
       --Wait W1,1
       --Copy MB, MO, a
       Shared_Vars.Read(MB1, MO1, a1);
       --Calculate MAh
-      Calculate(MB1'Access, MC'Access, MO1'Access, ME'Access, a1'Access, I);      
+      Calculate(MB1'Access, MC'Access, MO1'Access, ME'Access, a1'Access, I - 1);      
       --Signal S1,1
       Set_True(Sem(I));
-      Put_Line("Task T" & Integer'Image(I+1) &" finished");      
+      
+      --For task T1
+      if (I = 1) then
+        --Wait WN,1
+        for I in Sem'Range loop
+          Suspend_Until_True(Sem(I));
+        end loop;
+        --Output MA
+        Put_Line("MA =   "); Output(MA);        
+      end if;
+      
+      Put_Line("Task T" & Integer'Image(I) &" finished");      
     end Generic_Task;
     
     T_Arr: array(Range_P) of access Generic_Task;
